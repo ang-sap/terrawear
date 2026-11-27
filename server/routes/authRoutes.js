@@ -6,7 +6,6 @@ const User = require('../models/User')
 
 const router = express.Router()
 
-// REGISTER - Create a new user account
 router.post('/register', async (req, res) => {
   try {
     const {
@@ -17,7 +16,6 @@ router.post('/register', async (req, res) => {
       terms,
     } = req.body
 
-    // Check required fields
     if (
       typeof fullName !== 'string' ||
       typeof email !== 'string' ||
@@ -34,7 +32,6 @@ router.post('/register', async (req, res) => {
       })
     }
 
-    // Check terms acceptance
     if (terms !== true) {
       return res.status(400).json({
         success: false,
@@ -42,7 +39,6 @@ router.post('/register', async (req, res) => {
       })
     }
 
-    // Validate email
     const normalizedEmail = email.trim().toLowerCase()
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -53,7 +49,6 @@ router.post('/register', async (req, res) => {
       })
     }
 
-    // Validate password length
     if (password.length < 8) {
       return res.status(400).json({
         success: false,
@@ -61,7 +56,6 @@ router.post('/register', async (req, res) => {
       })
     }
 
-    // Confirm passwords match
     if (password !== confirmPassword) {
       return res.status(400).json({
         success: false,
@@ -69,7 +63,6 @@ router.post('/register', async (req, res) => {
       })
     }
 
-    // Check JWT configuration
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({
         success: false,
@@ -77,7 +70,6 @@ router.post('/register', async (req, res) => {
       })
     }
 
-    // Check if email already exists
     const existingUser = await User.findOne({
       email: normalizedEmail,
     })
@@ -89,10 +81,8 @@ router.post('/register', async (req, res) => {
       })
     }
 
-    // Hash password before saving
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Create user account
     const user = await User.create({
       name: fullName.trim(),
       email: normalizedEmail,
@@ -100,7 +90,6 @@ router.post('/register', async (req, res) => {
       termsAcceptedAt: new Date(),
     })
 
-    // Generate authentication token
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET,
@@ -130,6 +119,80 @@ router.post('/register', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while registering account.',
+    })
+  }
+})
+
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body
+
+    if (
+      typeof email !== 'string' ||
+      typeof password !== 'string' ||
+      !email.trim() ||
+      !password
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide your email and password.',
+      })
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        success: false,
+        message: 'Authentication configuration is missing.',
+      })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+    }).select('+password')
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.',
+      })
+    }
+
+    const isPasswordCorrect = await bcrypt.compare(
+      password,
+      user.password
+    )
+
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.',
+      })
+    }
+
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    )
+
+    res.status(200).json({
+      success: true,
+      message: 'Login successful!',
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+      token,
+    })
+  } catch (error) {
+    console.error('Login error:', error.message)
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error while logging in.',
     })
   }
 })

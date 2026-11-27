@@ -10,6 +10,7 @@ import { CartProvider } from './context/CartContext'
 
 import StoreLayout from './layouts/StoreLayout'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import Shop from './pages/Shop'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
@@ -65,6 +66,8 @@ function App() {
             path="/login"
             element={<Login />}
           />
+
+          <Route path="/register" element={<Register />} />
 
         </Routes>
       </BrowserRouter>
